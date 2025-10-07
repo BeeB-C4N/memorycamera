@@ -1,16 +1,14 @@
-
 <!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>思い出カメラ (ワンファイル版)</title>
+<title>思い出カメラ (レスポンシブ & カメラ制御版)</title>
 
 <!-- Leaflet (CDN) -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
 
 <style>
-/* --- ここからCSS --- */
 :root{
   --bg:#0b0c10;
   --panel:#0f1117;
@@ -22,10 +20,15 @@
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
-body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto Sans JP",sans-serif;background:radial-gradient(1200px 800px at 50% -10%, #0f1624 0%, var(--bg) 60%);color:var(--text)}
+body{
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto Sans JP",sans-serif;
+  background:radial-gradient(1200px 800px at 50% -10%, #0f1624 0%, var(--bg) 60%);
+  color:var(--text);
+  overscroll-behavior: none; /* Pull-to-refreshの無効化 */
+}
 
 /* ====== Layout Skeleton ====== */
-.app{position:fixed;inset:0;display:grid;grid-template-rows:92px 1fr 110px;}
+.app{position:fixed;inset:0;display:grid;grid-template-rows:80px 1fr 100px;}
 
 /* ====== Top Bar ====== */
 .top{
@@ -41,15 +44,13 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude; padding:1px; border:1px solid transparent;
 }
-.logo-container {
-  height: 60%;
-  z-index: 1;
+.title{
+  font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--text);
+  text-shadow:0 0 12px rgba(0,224,255,.18); text-align: center;
 }
-.logo {
-  height: 100%;
-  width: auto;
-  filter: drop-shadow(0 0 10px rgba(0,224,255,.25));
-}
+.title .jp{font-size:16px; opacity:.9}
+.title .en{display:block; font-size:10px; color:var(--muted); letter-spacing:.28em; margin-top:2px}
+
 
 /* ====== Main View ====== */
 .view{position:relative; overflow:hidden; height:100%; background: radial-gradient(500px 300px at 50% -10%, rgba(0,224,255,.05), transparent 60%);}
@@ -57,8 +58,43 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
 .view > .inner.active{display:block}
 
 /* Camera View */
-#camera video{width:100%;height:100%;object-fit:cover;background:#000}
+#camera { position: relative; background: #000; }
+#camera video{width:100%;height:100%;object-fit:cover;}
 .cameraMask{position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 0 2px rgba(0,224,255,.12), inset 0 0 80px rgba(0,0,0,.5)}
+
+#cameraOffMessage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--muted);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+#cameraOffMessage svg { width: 32px; height: 32px; }
+
+#toggleCameraButton {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: rgba(15, 17, 23, 0.8);
+  backdrop-filter: blur(4px);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 10;
+}
+#toggleCameraButton svg { width: 24px; height: 24px; }
+
 
 /* Map View */
 #map{position:absolute; inset:0}
@@ -77,11 +113,11 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
 .popup-btn:hover { background: var(--accent); color: var(--bg); }
 
 /* Album View */
-.albumGrid{position:absolute; inset:0; overflow:auto; padding:14px; display:grid; grid-template-columns:repeat(2,1fr); gap:12px}
+.albumGrid{position:absolute; inset:0; overflow:auto; padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px}
 .card{position:relative; border:1px solid var(--line); border-radius:14px; background:linear-gradient(180deg,#0e1016, #0a0c11); overflow:hidden; cursor: pointer; transition: transform .2s, box-shadow .2s; }
 .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,.5); }
 .card .thumb{aspect-ratio:4/3; width:100%; display:block; background:#050608; object-fit: cover;}
-.card .meta{padding:10px 12px; font-size:12px; color:#cfe4ff}
+.card .meta{padding:8px 10px; font-size:11px; color:#cfe4ff}
 .card .meta .cap{font-weight:600}
 
 /* ====== Found Photo Overlay ====== */
@@ -116,7 +152,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
   background: #000;
 }
 .photo-caption { color: var(--text); margin-bottom: 20px; }
-.photo-caption .main { font-size: 18px; font-weight: 600; }
+.photo-caption .main { font-size: 16px; font-weight: 600; }
 .paging-controls { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .paging-btn {
   --glow: rgba(0,224,255,.4);
@@ -133,28 +169,28 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
 .bottom{position:relative; background:linear-gradient(180deg, #0c0f15, #0b0d13); border-top:1px solid #172033;}
 .bottom .chrome{position:absolute; inset:10px; border:1px solid var(--line); border-radius:16px;}
 .bottom .chrome::before{content:""; position:absolute; inset:-1px; border-radius:16px; padding:1px; background:linear-gradient(90deg, rgba(0,224,255,.35), rgba(138,43,226,.25), rgba(0,224,255,.35)); -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; border:1px solid transparent; opacity:.25 }
-.controls{position:relative; height:100%; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:16px; padding:20px 18px}
+.controls{position:relative; height:100%; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:16px; padding:10px 18px}
 .btn{
   --glow: rgba(0,224,255,.4);
-  display:inline-grid; place-items:center; gap:6px; padding:10px 14px;
+  display:inline-grid; place-items:center; gap:4px; padding:8px 12px;
   border:1px solid #1b2436; background:linear-gradient(180deg,#0f1420,#0b0f19); color:var(--text);
-  border-radius:14px; min-width:120px; cursor:pointer; text-align:center; user-select:none;
+  border-radius:14px; min-width: 0; width: 100%; cursor:pointer; text-align:center; user-select:none;
   box-shadow:0 0 0 1px rgba(0,224,255,.08) inset, 0 0 24px rgba(0,224,255,.06) inset;
 }
 .btn:active{transform:scale(.98)}
-.btn .label{font-size:12px; opacity:.85; letter-spacing:.08em}
-.btn .icon{width:22px; height:22px; display:block; filter: drop-shadow(0 0 8px var(--glow));}
+.btn .label{font-size:10px; opacity:.85; letter-spacing:.08em}
+.btn .icon{width:20px; height:20px; display:block; filter: drop-shadow(0 0 8px var(--glow));}
 .shutterWrap{display:grid; place-items:center}
 .shutter{
-  width:80px; height:80px; border-radius:50%; border:3px solid #1b2436; position:relative; cursor:pointer;
+  width:64px; height:64px; border-radius:50%; border:3px solid #1b2436; position:relative; cursor:pointer;
   background: radial-gradient(circle at 50% 45%, #f4fbff 0 45%, #c5e7ff 45% 55%, #8cd8ff 55% 100%);
   box-shadow:0 0 0 2px rgba(0,224,255,.12) inset, 0 10px 40px rgba(0,0,0,.5);
 }
-.shutter::after{content:""; position:absolute; inset:12px; border-radius:50%; border:2px dashed rgba(0,224,255,.25)}
+.shutter::after{content:""; position:absolute; inset:10px; border-radius:50%; border:2px dashed rgba(0,224,255,.25)}
 .shutter:active{transform:scale(.97)}
 
 /* ====== Toast Notifications ====== */
-.toast{position:fixed; left:50%; bottom:140px; transform:translateX(-50%); background:#0b0f16; border:1px solid #1b2436; color:#d1ecff; padding:10px 14px; border-radius:10px; font-size:13px; box-shadow:0 10px 40px rgba(0,0,0,.45); display:none}
+.toast{position:fixed; left:50%; bottom:120px; transform:translateX(-50%); background:#0b0f16; border:1px solid #1b2436; color:#d1ecff; padding:10px 14px; border-radius:10px; font-size:13px; box-shadow:0 10px 40px rgba(0,0,0,.45); display:none; z-index: 2000;}
 .toast.show{display:block; animation:fade .25s ease-out}
 @keyframes fade{from{opacity:0; transform:translateX(-50%) translateY(6px)} to{opacity:1; transform:translateX(-50%)}}
 
@@ -162,12 +198,33 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
 .fade-enter{animation:fadeIn .24s ease-out}
 @keyframes fadeIn{from{opacity:0} to{opacity:1}}
 
-/* ====== Safe Area for iOS ====== */
+/* ====== Safe Area & Responsive Adjustments ====== */
 @supports(padding:max(0px)){
-  .top{padding-top:max(0px, env(safe-area-inset-top))}
-  .bottom{padding-bottom:max(0px, env(safe-area-inset-bottom))}
+  .app { grid-template-rows: calc(80px + env(safe-area-inset-top)) 1fr calc(100px + env(safe-area-inset-bottom)); }
+  .top{padding-top:env(safe-area-inset-top)}
+  .bottom{padding-bottom:env(safe-area-inset-bottom)}
+  .toast { bottom: calc(120px + env(safe-area-inset-bottom)); }
 }
-/* --- ここまでCSS --- */
+
+@media (max-width: 380px) {
+  .controls {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    gap: 8px;
+    padding: 8px;
+    justify-items: center;
+  }
+  .btn {
+    flex-direction: column;
+    width: 80px;
+  }
+  .shutterWrap { grid-row: 2; }
+  .app{ grid-template-rows: 80px 1fr 180px; }
+   @supports(padding:max(0px)){
+     .app { grid-template-rows: calc(80px + env(safe-area-inset-top)) 1fr calc(180px + env(safe-area-inset-bottom)); }
+   }
+}
+
 </style>
 </head>
 <body>
@@ -175,8 +232,9 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
     <!-- ===== Top (fixed) ===== -->
     <header class="top">
       <div class="chrome"></div>
-      <div class="logo-container">
-        <img src="./memorycamera_logo.png" alt="思い出カメラ ロゴ" class="logo">
+      <div class="title">
+        <div class="jp">思い出カメラ</div>
+        <div class="en">MEMORY CAMERA</div>
       </div>
     </header>
 
@@ -186,6 +244,13 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
       <section id="camera" class="inner active fade-enter" aria-hidden="false">
         <video id="video" autoplay playsinline muted></video>
         <div class="cameraMask"></div>
+        <div id="cameraOffMessage">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+          カメラを起動してください
+        </div>
+        <button id="toggleCameraButton" aria-label="Toggle Camera">
+          <!-- SVG icon will be inserted by JS -->
+        </button>
       </section>
 
       <!-- Map View -->
@@ -236,20 +301,17 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
 
   <div class="toast" id="toast"></div>
 
-  <!-- Leaflet and Main Script -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
   
   <script>
-  // --- ここからJavaScript ---
   document.addEventListener('DOMContentLoaded', () => {
 
     // ====== DOM Elements ======
-    const views = {
-        camera: document.querySelector('#camera'),
-        map: document.querySelector('#mapview'),
-        album: document.querySelector('#album')
-    };
+    const views = { camera: document.querySelector('#camera'), map: document.querySelector('#mapview'), album: document.querySelector('#album') };
     const toastEl = document.querySelector('#toast');
+    const videoEl = document.querySelector('#video');
+    const toggleCameraButton = document.querySelector('#toggleCameraButton');
+    const cameraOffMessage = document.querySelector('#cameraOffMessage');
     const foundPhotoOverlay = document.querySelector('#foundPhotoOverlay');
     const foundPhotoImage = document.querySelector('#foundPhotoImage');
     const foundPhotoCaptionMain = document.querySelector('#foundPhotoCaption .main');
@@ -263,7 +325,12 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
     const markersById = {};
     let foundPhotos = [];
     let currentFoundIndex = 0;
-    const FIND_RADIUS_METERS = 15; // 半径15m
+    const FIND_RADIUS_METERS = 15;
+    let cameraStream = null;
+
+    // Camera button icons
+    const cameraOnIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect></svg>`;
+    const cameraOffIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>`;
 
     // ====== Utilities ======
     const toast = (text, duration = 1800) => {
@@ -272,31 +339,20 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
         setTimeout(() => toastEl.classList.remove('show'), duration);
     };
 
-    /**
-     * Calculate distance between two lat/lon points using Haversine formula.
-     * @param {number} lat1 Latitude of point 1
-     * @param {number} lon1 Longitude of point 1
-     * @param {number} lat2 Latitude of point 2
-     * @param {number} lon2 Longitude of point 2
-     * @returns {number} Distance in meters
-     */
     const getDistance = (lat1, lon1, lat2, lon2) => {
         const R = 6371e3; // Earth's radius in meters
-        const φ1 = lat1 * Math.PI / 180;
-        const φ2 = lat2 * Math.PI / 180;
-        const Δφ = (lat2 - lat1) * Math.PI / 180;
-        const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                  Math.cos(φ1) * Math.cos(φ2) *
-                  Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        const φ1 = lat1 * Math.PI / 180; const φ2 = lat2 * Math.PI / 180;
+        const Δφ = (lat2 - lat1) * Math.PI / 180; const Δλ = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
         return R * c;
     };
 
     // ====== View Management ======
     const showView = (name) => {
+        if (name !== 'camera' && cameraStream) {
+            stopCamera(); // Stop camera when leaving the view
+        }
         Object.entries(views).forEach(([key, el]) => {
             const isActive = (key === name);
             el.classList.toggle('active', isActive);
@@ -312,58 +368,67 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
     const loadPhotoData = async () => {
         try {
             const response = await fetch('./data/suzu_data.csv');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const csvText = await response.text();
-            // Simple CSV parser (no external library)
             const lines = csvText.trim().split('\n');
             const header = lines.shift().split(',').map(h => h.trim());
-            
-            const idIndex = header.indexOf('id');
-            const textIndex = header.indexOf('text');
-            const latIndex = header.indexOf('lat');
-            const longIndex = header.indexOf('long');
-
+            const [idIndex, textIndex, latIndex, longIndex] = ['id', 'text', 'lat', 'long'].map(h => header.indexOf(h));
             allPhotoData = lines.map(line => {
                 const values = line.split(',');
-                return {
-                    id: values[idIndex].trim(),
-                    text: values[textIndex].trim(),
-                    lat: parseFloat(values[latIndex]),
-                    long: parseFloat(values[longIndex])
-                };
-            }).filter(p => p.id && !isNaN(p.lat) && !isNaN(p.long)); // Basic validation
-            
-            console.log('Photo data loaded:', allPhotoData);
+                return { id: values[idIndex]?.trim(), text: values[textIndex]?.trim(), lat: parseFloat(values[latIndex]), long: parseFloat(values[longIndex]) };
+            }).filter(p => p.id && !isNaN(p.lat) && !isNaN(p.long));
+            console.log('Photo data loaded:', allPhotoData.length);
         } catch (error) {
             console.error("Could not load photo data:", error);
             toast('写真データの読み込みに失敗しました。');
         }
     };
 
-    // ====== Camera ======
+    // ====== Camera Control ======
+    const updateCameraUI = (isOn) => {
+        toggleCameraButton.innerHTML = isOn ? cameraOnIcon : cameraOffIcon;
+        cameraOffMessage.style.display = isOn ? 'none' : 'flex';
+        videoEl.style.display = isOn ? 'block' : 'none';
+    };
+
     const startCamera = async () => {
-        const video = document.querySelector('#video');
+        if (cameraStream) return;
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-            video.srcObject = stream;
+            cameraStream = stream;
+            videoEl.srcObject = stream;
+            updateCameraUI(true);
         } catch (err) {
-            toast('カメラが利用できません');
+            toast('カメラの起動に失敗しました');
             console.warn('Camera Error:', err);
+            updateCameraUI(false);
         }
     };
+
+    const stopCamera = () => {
+        if (!cameraStream) return;
+        cameraStream.getTracks().forEach(track => track.stop());
+        videoEl.srcObject = null;
+        cameraStream = null;
+        updateCameraUI(false);
+    };
+
+    const toggleCamera = () => {
+        if (cameraStream) {
+            stopCamera();
+        } else {
+            startCamera();
+        }
+    };
+
 
     // ====== Map ======
     const initMapOnce = () => {
         if (map) return;
-        // Center of Suzu City
         map = L.map('map', { zoomControl: true, attributionControl: true }).setView([37.444, 137.264], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
-
         const customIcon = L.divIcon({ className: 'custom-marker-icon', iconSize: [24, 24], iconAnchor: [12, 12], popupAnchor: [0, -12] });
         const markersLayer = L.layerGroup().addTo(map);
-
         allPhotoData.forEach(p => {
             const popupContent = `<strong class="popup-title">${p.text}</strong><a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.long}" target="_blank" rel="noopener" class="popup-btn">ここに行く</a>`;
             const m = L.marker([p.lat, p.long], { icon: customIcon }).addTo(markersLayer).bindPopup(popupContent);
@@ -373,22 +438,18 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
 
     // ====== Album ======
     const renderAlbum = () => {
-        const grid = document.querySelector('#albumGrid');
-        grid.innerHTML = allPhotoData.map(p => `
+        document.querySelector('#albumGrid').innerHTML = allPhotoData.map(p => `
             <figure class="card" data-id="${p.id}">
               <img class="thumb" src="./images/${p.id}" alt="${p.text}" loading="lazy">
-              <figcaption class="meta">
-                <div class="cap">${p.text}</div>
-              </figcaption>
-            </figure>
-        `).join('');
+              <figcaption class="meta"><div class="cap">${p.text}</div></figcaption>
+            </figure>`).join('');
     };
 
     const flyToPoint = (id) => {
         const point = allPhotoData.find(p => p.id === id);
         if (!point) return;
         showView('map');
-        initMapOnce(); // Ensure map is ready
+        initMapOnce();
         const targetMarker = markersById[id];
         if (map && targetMarker) {
             map.flyTo([point.lat, point.long], 17, { animate: true, duration: 1.5 });
@@ -398,11 +459,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
 
     // ====== Shutter & Photo Finding ======
     const findPhotosNearby = (currentLat, currentLon) => {
-        foundPhotos = allPhotoData.filter(p => {
-            const distance = getDistance(currentLat, currentLon, p.lat, p.long);
-            return distance <= FIND_RADIUS_METERS;
-        });
-
+        foundPhotos = allPhotoData.filter(p => getDistance(currentLat, currentLon, p.lat, p.long) <= FIND_RADIUS_METERS);
         if (foundPhotos.length > 0) {
             toast(`近くで ${foundPhotos.length}枚の思い出を発見！`);
             showFoundPhotos();
@@ -413,19 +470,9 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
 
     const handleShutterClick = () => {
         toast('現在地から思い出を探しています...');
-        if (!navigator.geolocation) {
-            toast('お使いのブラウザは位置情報取得に未対応です');
-            return;
-        }
         navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const { latitude, longitude } = position.coords;
-                findPhotosNearby(latitude, longitude);
-            },
-            (error) => {
-                toast('位置情報の取得に失敗しました');
-                console.error('Geolocation error:', error);
-            },
+            (position) => findPhotosNearby(position.coords.latitude, position.coords.longitude),
+            (error) => { toast('位置情報の取得に失敗しました'); console.error('Geolocation error:', error); },
             { enableHighAccuracy: true }
         );
     };
@@ -460,31 +507,21 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto S
         if (card && card.dataset.id) flyToPoint(card.dataset.id);
     });
     document.querySelector('#btnShutter').addEventListener('click', handleShutterClick);
+    toggleCameraButton.addEventListener('click', toggleCamera);
     
     // Photo modal controls
-    prevBtn.addEventListener('click', () => {
-        if (currentFoundIndex > 0) {
-            currentFoundIndex--;
-            displayFoundPhoto(currentFoundIndex);
-        }
-    });
-    nextBtn.addEventListener('click', () => {
-        if (currentFoundIndex < foundPhotos.length - 1) {
-            currentFoundIndex++;
-            displayFoundPhoto(currentFoundIndex);
-        }
-    });
+    prevBtn.addEventListener('click', () => { if (currentFoundIndex > 0) displayFoundPhoto(--currentFoundIndex); });
+    nextBtn.addEventListener('click', () => { if (currentFoundIndex < foundPhotos.length - 1) displayFoundPhoto(++currentFoundIndex); });
     document.querySelector('#closePhotoBtn').addEventListener('click', hideFoundPhotos);
 
     // ====== App Initialization ======
     const initializeApp = async () => {
+        updateCameraUI(false); // Initial camera state is OFF
         await loadPhotoData();
-        startCamera();
     };
 
     initializeApp();
   });
-  // --- ここまでJavaScript ---
   </script>
 </body>
 </html>
