@@ -119,23 +119,33 @@ body{
 #map{position:absolute; inset:0}
 .leaflet-container{background:#0a0d13}
 .custom-marker-icon {
-  background-color: rgba(0, 224, 255, 0.15); border: 1px solid var(--accent); border-radius: 50%;
-  width: 24px!important; height: 24px!important; box-shadow: 0 0 12px rgba(0, 224, 255, 0.5);
+  --marker-blue: #0077ff;
+  background-color: rgba(0, 119, 255, 0.25);
+  border: 1px solid var(--marker-blue);
+  box-shadow: 0 0 14px rgba(0, 119, 255, 0.6);
+  border-radius: 50%;
+  width: 24px!important; height: 24px!important;
   display: flex; justify-content: center; align-items: center;
 }
-.custom-marker-icon::after { content: ''; width: 8px; height: 8px; background-color: var(--accent); border-radius: 50%; }
+.custom-marker-icon::after {
+  content: ''; width: 8px; height: 8px;
+  background-color: var(--marker-blue);
+  border-radius: 50%;
+}
 .leaflet-popup-content-wrapper { background: var(--panel); color: var(--text); border-radius: 8px; border: 1px solid var(--line); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
 .leaflet-popup-content { font-size: 14px; width: 160px !important; }
 .leaflet-popup-tip { background: var(--panel); }
 .leaflet-popup-content .popup-title { font-weight: bold; margin-bottom: 8px; display: block; text-align: center; }
 .popup-actions { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .popup-btn {
-  display: inline-block; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 6px;
-  background: transparent; color: var(--accent); text-decoration: none; font-weight: bold;
+  display: inline-block; padding: 6px 12px; border-radius: 6px;
+  background: transparent; text-decoration: none; font-weight: bold;
   transition: all .2s; width: 100%; text-align: center;
+  font-size: 13px;
 }
-.popup-btn:hover { background: var(--accent); color: var(--bg); }
-.popup-btn.secondary { border-color: var(--accent2); color: var(--accent2); }
+.popup-btn.primary { border: 1px solid var(--accent); color: var(--accent); }
+.popup-btn.primary:hover { background: var(--accent); color: var(--bg); }
+.popup-btn.secondary { border: 1px solid var(--accent2); color: var(--accent2); }
 .popup-btn.secondary:hover { background: var(--accent2); color: var(--text); }
 
 
@@ -197,6 +207,12 @@ body{
 }
 .modal-overlay.show .modal-container { transform: scale(1); }
 
+.modal-title {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
 .modal-image {
   width: 100%;
   height: auto;
@@ -372,12 +388,13 @@ body{
       <div id="albumPhotoOverlay" class="modal-overlay">
         <div class="modal-container">
           <button class="modal-close-btn" aria-label="閉じる">&times;</button>
+          <h2 class="modal-title">思い出の写真</h2>
           <img id="albumPhotoImage" class="modal-image" src="" alt="アルバムの写真">
           <div class="modal-caption">
             <div class="main" id="albumPhotoCaptionMain"></div>
           </div>
           <div class="modal-actions">
-            <button id="albumModalMapBtn" class="popup-btn">場所を確認する</button>
+            <button id="albumModalMapBtn" class="popup-btn primary">場所を確認する</button>
           </div>
         </div>
       </div>
@@ -445,11 +462,12 @@ body{
     let cameraStream = null;
     let isCameraOn = false;
     let currentView = 'camera';
+    let currentUserLocationMarker = null;
 
     // SVG Icons
     const shutterIcon = `<svg class="center-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle></svg>`;
-    const cameraIcon = `<svg class="center-btn-icon is-camera-mode" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>`;
-    const cameraOnIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect></svg>`;
+    const cameraToggleIcon = `<svg class="center-btn-icon is-camera-mode" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>`;
+    const cameraIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>`;
     const infoIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
 
     // ====== Utilities ======
@@ -474,7 +492,7 @@ body{
             centerBtn.innerHTML = shutterIcon;
             centerBtn.classList.remove('is-camera-mode');
         } else {
-            centerBtn.innerHTML = cameraIcon;
+            centerBtn.innerHTML = cameraToggleIcon;
             centerBtn.classList.add('is-camera-mode');
         }
     };
@@ -511,7 +529,7 @@ body{
             allPhotoData = lines.map((line, index) => {
                 const values = line.split(',');
                 return {
-                    uniqueId: index, // <<< Assign a truly unique ID
+                    uniqueId: index,
                     id: values[idIndex]?.trim(),
                     text: values[textIndex]?.trim(),
                     lat: parseFloat(values[latIndex]),
@@ -530,7 +548,7 @@ body{
         isCameraOn = isOn;
         cameraOffState.style.display = isOn ? 'none' : 'flex';
         videoEl.style.display = isOn ? 'block' : 'none';
-        toggleCameraButton.innerHTML = isOn ? cameraOnIcon : infoIcon;
+        toggleCameraButton.innerHTML = isOn ? infoIcon : cameraIcon;
         toggleCameraButton.classList.toggle('is-on', isOn);
     };
 
@@ -557,17 +575,37 @@ body{
     };
 
     // ====== Map ======
+    const showCurrentUserLocation = () => {
+        if (!map) return;
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                const latLng = [latitude, longitude];
+                if (currentUserLocationMarker) {
+                    currentUserLocationMarker.setLatLng(latLng);
+                } else {
+                    currentUserLocationMarker = L.circleMarker(latLng, {
+                        radius: 8, fillColor: "#ff4b4b", color: "#fff",
+                        weight: 2, opacity: 1, fillOpacity: 0.8
+                    }).addTo(map);
+                }
+                currentUserLocationMarker.bindTooltip("現在地").openTooltip();
+            },
+            () => { toast('現在地の取得に失敗しました'); }
+        );
+    };
+
     const initMapOnce = () => {
         if (map) return;
         map = L.map('map', { zoomControl: true, attributionControl: true }).setView([37.444, 137.264], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
-        const customIcon = L.divIcon({ className: 'custom-marker-icon', iconSize: [24, 24], iconAnchor: [12, 12], popupAnchor: [0, -12] });
+        const customIcon = L.divIcon({ className: 'custom-marker-icon' });
         const markersLayer = L.layerGroup().addTo(map);
         allPhotoData.forEach(p => {
             const popupContent = `
                 <strong class="popup-title">${p.text}</strong>
                 <div class="popup-actions">
-                    <a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.long}" target="_blank" rel="noopener" class="popup-btn">ここに行く</a>
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.long}" target="_blank" rel="noopener" class="popup-btn primary">ここに行く</a>
                     <button class="popup-btn secondary" data-unique-id="${p.uniqueId}">写真を見る</button>
                 </div>`;
             const m = L.marker([p.lat, p.long], { icon: customIcon }).addTo(markersLayer).bindPopup(popupContent);
@@ -589,6 +627,7 @@ body{
         if (!point) return;
         showView('map');
         initMapOnce();
+        showCurrentUserLocation();
         const targetMarker = markersByUniqueId[uniqueId];
         if (map && targetMarker) {
             map.flyTo([point.lat, point.long], 17, { animate: true, duration: 1.5 });
@@ -659,7 +698,7 @@ body{
     };
 
     // ====== Event Listeners ======
-    document.querySelector('#btnMap').addEventListener('click', () => { showView('map'); initMapOnce(); });
+    document.querySelector('#btnMap').addEventListener('click', () => { showView('map'); initMapOnce(); showCurrentUserLocation(); });
     document.querySelector('#btnAlbum').addEventListener('click', () => { showView('album'); renderAlbum(); });
     
     document.querySelector('#albumGrid').addEventListener('click', e => {
@@ -673,10 +712,7 @@ body{
         const viewPhotoButton = e.target.closest('.popup-btn.secondary');
         if (viewPhotoButton && viewPhotoButton.dataset.uniqueId) {
              const uniqueId = parseInt(viewPhotoButton.dataset.uniqueId, 10);
-             const photo = allPhotoData.find(p => p.uniqueId === uniqueId);
-             if (photo) {
-                 showPhotoInAlbumModal(uniqueId);
-             }
+             showPhotoInAlbumModal(uniqueId);
         }
     });
 
