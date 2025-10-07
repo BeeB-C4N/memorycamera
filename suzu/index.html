@@ -173,8 +173,8 @@ body{
 }
 
 
-/* ====== Found Photo Overlay ====== */
-#foundPhotoOverlay {
+/* ====== Modal Overlays ====== */
+.modal-overlay {
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(8px);
@@ -185,8 +185,9 @@ body{
   opacity: 0;
   transition: opacity .4s ease-out;
 }
-#foundPhotoOverlay.show { display: flex; }
-.photo-container {
+.modal-overlay.show { display: flex; }
+
+.modal-container {
   position: relative;
   width: 90%;
   max-width: 500px;
@@ -194,29 +195,47 @@ body{
   transform: scale(0.95);
   transition: transform .4s ease-out;
 }
-#foundPhotoOverlay.show .photo-container { transform: scale(1); }
-.photo-container .photo-image {
+.modal-overlay.show .modal-container { transform: scale(1); }
+
+.modal-image {
   width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
+  height: auto;
+  max-height: 60vh;
+  object-fit: contain;
   border-radius: 12px;
   border: 2px solid var(--line);
   margin-bottom: 16px;
   background: #000;
 }
-.photo-caption { color: var(--text); margin-bottom: 20px; }
-.photo-caption .main { font-size: 16px; font-weight: 600; }
-.paging-controls { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.paging-btn {
+.modal-caption { color: var(--text); margin-bottom: 20px; }
+.modal-caption .main { font-size: 16px; font-weight: 600; }
+
+.modal-close-btn {
+  position: absolute; top: -40px; right: 0;
+  width: 32px; height: 32px; background: transparent;
+  border: 1px solid var(--line); color: var(--muted);
+  border-radius: 50%; cursor: pointer; font-size: 20px;
+  line-height: 30px;
+}
+
+/* Specifics for Found Photo Modal */
+#foundPhotoOverlay .paging-controls { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+#foundPhotoOverlay .paging-btn {
   --glow: rgba(0,224,255,.4);
   background: transparent; border: 1px solid var(--line); color: var(--text);
   border-radius: 8px; cursor: pointer; transition: all .2s;
   font-size: 18px; padding: 8px 18px; line-height: 1; width: 60px;
 }
-.paging-btn:hover:not(:disabled) { border-color: var(--accent); box-shadow: 0 0 12px var(--glow); }
-.paging-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.paging-counter { font-size: 14px; font-weight: 600; color: var(--muted); }
-.close-btn { position: absolute; top: -40px; right: 0; width: 32px; height: 32px; background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 50%; cursor: pointer; font-size: 20px; line-height: 30px; }
+#foundPhotoOverlay .paging-btn:hover:not(:disabled) { border-color: var(--accent); box-shadow: 0 0 12px var(--glow); }
+#foundPhotoOverlay .paging-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+#foundPhotoOverlay .paging-counter { font-size: 14px; font-weight: 600; color: var(--muted); }
+
+/* Specifics for Album Photo Modal */
+#albumPhotoOverlay .modal-actions {
+    display: flex;
+    justify-content: center;
+}
+
 
 /* ====== Bottom Controls ====== */
 .bottom{position:relative; background:linear-gradient(180deg, #0c0f15, #0b0d13); border-top:1px solid #172033;}
@@ -254,7 +273,6 @@ body{
 }
 .center-btn-icon.is-camera-mode {
     color: var(--text);
-    filter: drop-shadow(0 0 8px var(--glow));
 }
 
 /* ====== Toast Notifications ====== */
@@ -334,13 +352,13 @@ body{
         <div class="albumGrid" id="albumGrid"></div>
       </section>
 
-      <!-- Found Photo Overlay -->
-      <div id="foundPhotoOverlay">
-        <div class="photo-container">
-          <button id="closePhotoBtn" class="close-btn" aria-label="閉じる">&times;</button>
-          <img id="foundPhotoImage" class="photo-image" src="" alt="発見された写真">
-          <div id="foundPhotoCaption" class="photo-caption">
-            <div class="main"></div>
+      <!-- Found Photo Modal -->
+      <div id="foundPhotoOverlay" class="modal-overlay">
+        <div class="modal-container">
+          <button class="modal-close-btn" aria-label="閉じる">&times;</button>
+          <img id="foundPhotoImage" class="modal-image" src="" alt="発見された写真">
+          <div class="modal-caption">
+            <div class="main" id="foundPhotoCaptionMain"></div>
           </div>
           <div class="paging-controls">
             <button id="prevPhotoBtn" class="paging-btn" aria-label="前の写真">◀</button>
@@ -349,6 +367,21 @@ body{
           </div>
         </div>
       </div>
+      
+      <!-- Album Photo Modal -->
+      <div id="albumPhotoOverlay" class="modal-overlay">
+        <div class="modal-container">
+          <button class="modal-close-btn" aria-label="閉じる">&times;</button>
+          <img id="albumPhotoImage" class="modal-image" src="" alt="アルバムの写真">
+          <div class="modal-caption">
+            <div class="main" id="albumPhotoCaptionMain"></div>
+          </div>
+          <div class="modal-actions">
+            <button id="albumModalMapBtn" class="popup-btn">場所を確認する</button>
+          </div>
+        </div>
+      </div>
+
     </main>
 
     <!-- ===== Bottom Controls (fixed) ===== -->
@@ -386,17 +419,26 @@ body{
     const cameraOffState = document.querySelector('#cameraOffState');
     const toggleCameraButton = document.querySelector('#toggleCameraButton');
     const centerBtn = document.querySelector('#centerBtn');
+    
+    // Found Photo Modal
     const foundPhotoOverlay = document.querySelector('#foundPhotoOverlay');
     const foundPhotoImage = document.querySelector('#foundPhotoImage');
-    const foundPhotoCaptionMain = document.querySelector('#foundPhotoCaption .main');
+    const foundPhotoCaptionMain = document.querySelector('#foundPhotoCaptionMain');
     const pagingCounter = document.querySelector('#pagingCounter');
     const prevBtn = document.querySelector('#prevPhotoBtn');
     const nextBtn = document.querySelector('#nextPhotoBtn');
 
+    // Album Photo Modal
+    const albumPhotoOverlay = document.querySelector('#albumPhotoOverlay');
+    const albumPhotoImage = document.querySelector('#albumPhotoImage');
+    const albumPhotoCaptionMain = document.querySelector('#albumPhotoCaptionMain');
+    const albumModalMapBtn = document.querySelector('#albumModalMapBtn');
+
+
     // ====== App State ======
     let allPhotoData = [];
     let map;
-    const markersById = {};
+    const markersByUniqueId = {};
     let foundPhotos = [];
     let currentFoundIndex = 0;
     const FIND_RADIUS_METERS = 15;
@@ -466,9 +508,15 @@ body{
             const header = lines.shift().split(',').map(h => h.trim());
             const [idIndex, textIndex, latIndex, longIndex] = ['id', 'text', 'lat', 'long'].map(h => header.indexOf(h));
             if ([idIndex, textIndex, latIndex, longIndex].includes(-1)) throw new Error("CSV header is missing required columns.");
-            allPhotoData = lines.map(line => {
+            allPhotoData = lines.map((line, index) => {
                 const values = line.split(',');
-                return { id: values[idIndex]?.trim(), text: values[textIndex]?.trim(), lat: parseFloat(values[latIndex]), long: parseFloat(values[longIndex]) };
+                return {
+                    uniqueId: index, // <<< Assign a truly unique ID
+                    id: values[idIndex]?.trim(),
+                    text: values[textIndex]?.trim(),
+                    lat: parseFloat(values[latIndex]),
+                    long: parseFloat(values[longIndex])
+                };
             }).filter(p => p.id && !isNaN(p.lat) && !isNaN(p.long));
             if (allPhotoData.length === 0) toast('写真データが見つかりませんでした。');
         } catch (error) {
@@ -520,47 +568,51 @@ body{
                 <strong class="popup-title">${p.text}</strong>
                 <div class="popup-actions">
                     <a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.long}" target="_blank" rel="noopener" class="popup-btn">ここに行く</a>
-                    <button class="popup-btn secondary" data-id="${p.id}">写真を見る</button>
+                    <button class="popup-btn secondary" data-unique-id="${p.uniqueId}">写真を見る</button>
                 </div>`;
             const m = L.marker([p.lat, p.long], { icon: customIcon }).addTo(markersLayer).bindPopup(popupContent);
-            markersById[p.id] = m;
+            markersByUniqueId[p.uniqueId] = m;
         });
     };
 
     // ====== Album ======
     const renderAlbum = () => {
         document.querySelector('#albumGrid').innerHTML = allPhotoData.map(p => `
-            <figure class="card" data-id="${p.id}">
+            <figure class="card" data-unique-id="${p.uniqueId}">
               <img class="thumb" src="./images/${p.id}" alt="${p.text}" loading="lazy">
               <figcaption class="meta"><div class="cap">${p.text}</div></figcaption>
             </figure>`).join('');
     };
     
-    const flyToPoint = (id) => {
-        const point = allPhotoData.find(p => p.id === id);
+    const flyToPoint = (uniqueId) => {
+        const point = allPhotoData.find(p => p.uniqueId === uniqueId);
         if (!point) return;
         showView('map');
-        initMapOnce(); // Will initialize if not already done
-        const targetMarker = markersById[id];
+        initMapOnce();
+        const targetMarker = markersByUniqueId[uniqueId];
         if (map && targetMarker) {
             map.flyTo([point.lat, point.long], 17, { animate: true, duration: 1.5 });
             setTimeout(() => { targetMarker.openPopup(); }, 800);
         }
     };
     
-    const showPhotoInAlbum = (id) => {
-        showView('album');
-        if (document.querySelector('#albumGrid').innerHTML === '') {
-            renderAlbum();
-        }
-        setTimeout(() => {
-            const card = document.querySelector(`.card[data-id="${id}"]`);
-            if (card) {
-                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                card.classList.add('highlight');
-                setTimeout(() => card.classList.remove('highlight'), 2000);
-            }
-        }, 300);
+    // ====== Modals ======
+    const showModal = (overlay) => {
+        overlay.classList.add('show');
+        setTimeout(() => { overlay.style.opacity = '1'; }, 10);
+    };
+    const hideModal = (overlay) => {
+        overlay.style.opacity = '0';
+        setTimeout(() => { overlay.classList.remove('show'); }, 400);
+    };
+    
+    const showPhotoInAlbumModal = (uniqueId) => {
+        const photo = allPhotoData.find(p => p.uniqueId === uniqueId);
+        if (!photo) return;
+        albumPhotoImage.src = `./images/${photo.id}`;
+        albumPhotoCaptionMain.textContent = photo.text;
+        albumModalMapBtn.dataset.uniqueId = uniqueId;
+        showModal(albumPhotoOverlay);
     };
 
     // ====== Shutter & Photo Finding ======
@@ -575,7 +627,8 @@ body{
                 foundPhotos = allPhotoData.filter(p => getDistance(position.coords.latitude, position.coords.longitude, p.lat, p.long) <= FIND_RADIUS_METERS);
                 if (foundPhotos.length > 0) {
                     toast(`近くで ${foundPhotos.length}枚の思い出を発見！`);
-                    showFoundPhotos();
+                    displayFoundPhoto(0);
+                    showModal(foundPhotoOverlay);
                 } else {
                     toast('この近くには思い出の写真がないようです');
                 }
@@ -594,8 +647,9 @@ body{
         }
     };
 
-    // ====== Found Photo Modal ======
+    // ====== Found Photo Modal Logic ======
     const displayFoundPhoto = (index) => {
+        currentFoundIndex = index;
         const photo = foundPhotos[index];
         foundPhotoImage.src = `./images/${photo.id}`;
         foundPhotoCaptionMain.textContent = photo.text;
@@ -604,33 +658,25 @@ body{
         nextBtn.disabled = index === foundPhotos.length - 1;
     };
 
-    const showFoundPhotos = () => {
-        currentFoundIndex = 0;
-        displayFoundPhoto(currentFoundIndex);
-        foundPhotoOverlay.classList.add('show');
-        setTimeout(() => { foundPhotoOverlay.style.opacity = '1'; }, 10);
-    };
-
-    const hideFoundPhotos = () => {
-        foundPhotoOverlay.style.opacity = '0';
-        setTimeout(() => { foundPhotoOverlay.classList.remove('show'); }, 400);
-    };
-
     // ====== Event Listeners ======
     document.querySelector('#btnMap').addEventListener('click', () => { showView('map'); initMapOnce(); });
     document.querySelector('#btnAlbum').addEventListener('click', () => { showView('album'); renderAlbum(); });
     
     document.querySelector('#albumGrid').addEventListener('click', e => {
         const card = e.target.closest('.card');
-        if (card && card.dataset.id) {
-             flyToPoint(card.dataset.id);
+        if (card && card.dataset.uniqueId) {
+             showPhotoInAlbumModal(parseInt(card.dataset.uniqueId, 10));
         }
     });
     
     document.querySelector('#map').addEventListener('click', e => {
         const viewPhotoButton = e.target.closest('.popup-btn.secondary');
-        if (viewPhotoButton && viewPhotoButton.dataset.id) {
-             showPhotoInAlbum(viewPhotoButton.dataset.id);
+        if (viewPhotoButton && viewPhotoButton.dataset.uniqueId) {
+             const uniqueId = parseInt(viewPhotoButton.dataset.uniqueId, 10);
+             const photo = allPhotoData.find(p => p.uniqueId === uniqueId);
+             if (photo) {
+                 showPhotoInAlbumModal(uniqueId);
+             }
         }
     });
 
@@ -639,9 +685,17 @@ body{
         if (isCameraOn) { stopCamera(); } else { startCamera(); }
     });
     
-    prevBtn.addEventListener('click', () => { if (currentFoundIndex > 0) displayFoundPhoto(--currentFoundIndex); });
-    nextBtn.addEventListener('click', () => { if (currentFoundIndex < foundPhotos.length - 1) displayFoundPhoto(++currentFoundIndex); });
-    document.querySelector('#closePhotoBtn').addEventListener('click', hideFoundPhotos);
+    // Modal listeners
+    prevBtn.addEventListener('click', () => { if (currentFoundIndex > 0) displayFoundPhoto(currentFoundIndex - 1); });
+    nextBtn.addEventListener('click', () => { if (currentFoundIndex < foundPhotos.length - 1) displayFoundPhoto(currentFoundIndex + 1); });
+    foundPhotoOverlay.querySelector('.modal-close-btn').addEventListener('click', () => hideModal(foundPhotoOverlay));
+    
+    albumPhotoOverlay.querySelector('.modal-close-btn').addEventListener('click', () => hideModal(albumPhotoOverlay));
+    albumModalMapBtn.addEventListener('click', (e) => {
+        const uniqueId = parseInt(e.target.dataset.uniqueId, 10);
+        hideModal(albumPhotoOverlay);
+        flyToPoint(uniqueId);
+    });
 
     // ====== App Initialization ======
     const initializeApp = async () => {
