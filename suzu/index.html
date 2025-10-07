@@ -6,7 +6,7 @@
 <title>思い出カメラ</title>
 
 <!-- Leaflet (CDN) -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY" crossorigin="anonymous">
 
 <style>
 :root{
@@ -33,7 +33,7 @@ body{
 /* ====== Top Bar ====== */
 .top{
   position:relative;background:linear-gradient(180deg, rgba(23,27,40,.9), rgba(15,17,23,.9));
-  border-bottom:1px solid #172033; display:flex; align-items-center; justify-content:center;
+  border-bottom:1px solid #172033; display:flex; align-items:center; justify-content:center;
 }
 .top .chrome{position:absolute; inset:8px 10px; border:1px solid var(--line); border-radius:16px;}
 .top .chrome::before, .top .chrome::after{
@@ -49,8 +49,7 @@ body{
   text-shadow:0 0 12px rgba(0,224,255,.18); text-align: center;
 }
 .title .jp{font-size:16px; opacity:.9}
-.title .en{display:block; font-size:10px; color:var(--muted); letter-spacing:.28em; margin-top:2px}
-
+.title .en{display:block; font-size:10px; color:var(--muted); letter-spacing:.28em;}
 
 /* ====== Main View ====== */
 .view{position:relative; overflow:hidden; height:100%;}
@@ -63,7 +62,7 @@ body{
     width: 100%;
     height: 100%;
     background: #000;
-    overflow: hidden; /* Ensure mask and other elements don't overflow */
+    overflow: hidden;
 }
 #camera video{
     position: absolute;
@@ -141,14 +140,14 @@ body{
 
 
 /* Album View */
-#album { background-color: var(--bg); /* Added to prevent see-through */ }
+#album { background-color: var(--bg); }
 .albumGrid{position:absolute; inset:0; overflow:auto; padding:12px; display:grid; grid-template-columns: 1fr; gap:16px}
 .card{
   position:relative; border:1px solid var(--line); border-radius:14px;
   background:linear-gradient(180deg,#0e1016, #0a0c11); overflow:hidden;
   cursor: pointer; transition: transform .2s, box-shadow .2s;
-  width: 95%; /* Adjust card width */
-  margin: 0 auto; /* Center cards */
+  width: 95%;
+  margin: 0 auto;
 }
 .card.highlight {
     box-shadow: 0 0 20px var(--accent);
@@ -158,10 +157,9 @@ body{
 .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,.5); }
 .card .thumb{
     width:100%;
-    height: auto; /* Changed to auto to respect aspect ratio */
+    height: auto;
     display:block;
     background:#050608;
-    object-fit: contain; /* Changed to contain to show full image */
 }
 .card .meta{padding:12px 14px; font-size:13px; color:#cfe4ff}
 .card .meta .cap{font-weight:600}
@@ -257,12 +255,6 @@ body{
 .center-btn-icon.is-camera-mode {
     color: var(--text);
     filter: drop-shadow(0 0 8px var(--glow));
-}
-#centerBtn .label {
-    position: absolute;
-    bottom: -20px;
-    font-size: 10px;
-    color: var(--muted);
 }
 
 /* ====== Toast Notifications ====== */
@@ -413,8 +405,8 @@ body{
     let currentView = 'camera';
 
     // SVG Icons
-    const shutterIcon = `<svg class="center-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle></svg><div class="label">シャッター</div>`;
-    const cameraIcon = `<svg class="center-btn-icon is-camera-mode" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg><div class="label">カメラ</div>`;
+    const shutterIcon = `<svg class="center-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle></svg>`;
+    const cameraIcon = `<svg class="center-btn-icon is-camera-mode" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>`;
     const cameraOnIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect></svg>`;
     const infoIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
 
@@ -544,14 +536,23 @@ body{
             </figure>`).join('');
     };
     
+    const flyToPoint = (id) => {
+        const point = allPhotoData.find(p => p.id === id);
+        if (!point) return;
+        showView('map');
+        initMapOnce(); // Will initialize if not already done
+        const targetMarker = markersById[id];
+        if (map && targetMarker) {
+            map.flyTo([point.lat, point.long], 17, { animate: true, duration: 1.5 });
+            setTimeout(() => { targetMarker.openPopup(); }, 800);
+        }
+    };
+    
     const showPhotoInAlbum = (id) => {
         showView('album');
-        // Ensure album is rendered before scrolling
         if (document.querySelector('#albumGrid').innerHTML === '') {
             renderAlbum();
         }
-
-        // Use setTimeout to allow the view transition to complete
         setTimeout(() => {
             const card = document.querySelector(`.card[data-id="${id}"]`);
             if (card) {
@@ -622,7 +623,7 @@ body{
     document.querySelector('#albumGrid').addEventListener('click', e => {
         const card = e.target.closest('.card');
         if (card && card.dataset.id) {
-             map ? flyToPoint(card.dataset.id) : toast('先にマップを開いてください');
+             flyToPoint(card.dataset.id);
         }
     });
     
@@ -645,9 +646,9 @@ body{
     // ====== App Initialization ======
     const initializeApp = async () => {
         updateCenterButtonUI('camera');
-        updateCameraUI(false); // Initial camera state is OFF
+        updateCameraUI(false);
         await loadPhotoData();
-        showView('camera'); // Start on camera view
+        showView('camera');
     };
 
     initializeApp();
