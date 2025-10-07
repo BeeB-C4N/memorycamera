@@ -33,7 +33,7 @@ body{
 /* ====== Top Bar ====== */
 .top{
   position:relative;background:linear-gradient(180deg, rgba(23,27,40,.9), rgba(15,17,23,.9));
-  border-bottom:1px solid #172033; display:flex; align-items:center; justify-content:center;
+  border-bottom:1px solid #172033; display:flex; align-items-center; justify-content:center;
 }
 .top .chrome{position:absolute; inset:8px 10px; border:1px solid var(--line); border-radius:16px;}
 .top .chrome::before, .top .chrome::after{
@@ -53,21 +53,38 @@ body{
 
 
 /* ====== Main View ====== */
-.view{position:relative; overflow:hidden; height:100%; background: radial-gradient(500px 300px at 50% -10%, rgba(0,224,255,.05), transparent 60%);}
+.view{position:relative; overflow:hidden; height:100%;}
 .view > .inner{position:absolute; inset:0; display:none}
 .view > .inner.active{display:block}
 
 /* Camera View */
-#camera { position: relative; background: #000; display: flex; justify-content: center; align-items: center; }
-#camera video{width:100%;height:100%;object-fit:cover;}
+#camera {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden; /* Ensure mask and other elements don't overflow */
+}
+#camera video{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: translate(-50%, -50%);
+}
 .cameraMask{position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 0 2px rgba(0,224,255,.12), inset 0 0 80px rgba(0,0,0,.5)}
 #cameraOffState {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 100%;
-    height: 100%;
+    width: 80%;
 }
 #cameraOffState .logo {
     width: 60%;
@@ -77,10 +94,10 @@ body{
 
 #toggleCameraButton {
   position: absolute;
-  bottom: 16px;
+  top: 16px;
   right: 16px;
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   border: 1px solid var(--line);
   background: rgba(15, 17, 23, 0.8);
@@ -124,11 +141,14 @@ body{
 
 
 /* Album View */
-.albumGrid{position:absolute; inset:0; overflow:auto; padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px}
+#album { background-color: var(--bg); /* Added to prevent see-through */ }
+.albumGrid{position:absolute; inset:0; overflow:auto; padding:12px; display:grid; grid-template-columns: 1fr; gap:16px}
 .card{
   position:relative; border:1px solid var(--line); border-radius:14px;
   background:linear-gradient(180deg,#0e1016, #0a0c11); overflow:hidden;
   cursor: pointer; transition: transform .2s, box-shadow .2s;
+  width: 95%; /* Adjust card width */
+  margin: 0 auto; /* Center cards */
 }
 .card.highlight {
     box-shadow: 0 0 20px var(--accent);
@@ -136,16 +156,22 @@ body{
     transform: scale(1.02);
 }
 .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,.5); }
-.card .thumb{aspect-ratio:1 / 1; width:100%; display:block; background:#050608; object-fit: cover;}
-.card .meta{padding:8px 10px; font-size:11px; color:#cfe4ff}
+.card .thumb{
+    width:100%;
+    height: auto; /* Changed to auto to respect aspect ratio */
+    display:block;
+    background:#050608;
+    object-fit: contain; /* Changed to contain to show full image */
+}
+.card .meta{padding:12px 14px; font-size:13px; color:#cfe4ff}
 .card .meta .cap{font-weight:600}
 
-@media (max-width: 600px) {
+@media (min-width: 600px) {
     .albumGrid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
         gap: 16px;
     }
-    .card .meta { font-size: 13px; padding: 12px 14px; }
+    .card { width: 100%; margin: 0; }
 }
 
 
@@ -390,7 +416,7 @@ body{
     const shutterIcon = `<svg class="center-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle></svg><div class="label">シャッター</div>`;
     const cameraIcon = `<svg class="center-btn-icon is-camera-mode" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg><div class="label">カメラ</div>`;
     const cameraOnIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect></svg>`;
-    const cameraOffIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>`;
+    const infoIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
 
     // ====== Utilities ======
     const toast = (text, duration = 1800) => {
@@ -464,7 +490,7 @@ body{
         isCameraOn = isOn;
         cameraOffState.style.display = isOn ? 'none' : 'flex';
         videoEl.style.display = isOn ? 'block' : 'none';
-        toggleCameraButton.innerHTML = isOn ? cameraOnIcon : cameraOffIcon;
+        toggleCameraButton.innerHTML = isOn ? cameraOnIcon : infoIcon;
         toggleCameraButton.classList.toggle('is-on', isOn);
     };
 
@@ -591,11 +617,13 @@ body{
 
     // ====== Event Listeners ======
     document.querySelector('#btnMap').addEventListener('click', () => { showView('map'); initMapOnce(); });
-    document.querySelector('#btnAlbum').addEventListener('click', () => { renderAlbum(); showView('album'); });
+    document.querySelector('#btnAlbum').addEventListener('click', () => { showView('album'); renderAlbum(); });
     
     document.querySelector('#albumGrid').addEventListener('click', e => {
         const card = e.target.closest('.card');
-        if (card && card.dataset.id) flyToPoint(card.dataset.id);
+        if (card && card.dataset.id) {
+             map ? flyToPoint(card.dataset.id) : toast('先にマップを開いてください');
+        }
     });
     
     document.querySelector('#map').addEventListener('click', e => {
