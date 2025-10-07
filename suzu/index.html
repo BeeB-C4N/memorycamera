@@ -1,1 +1,491 @@
 
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>思い出カメラ (ワンファイル版)</title>
+
+<!-- Leaflet (CDN) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+
+<style>
+/* --- ここからCSS --- */
+:root{
+  --bg:#0b0c10;
+  --panel:#0f1117;
+  --line:#1d2230;
+  --accent:#00e0ff;
+  --accent2:#8a2be2;
+  --text:#e7f4ff;
+  --muted:#9fb3c8;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto Sans JP",sans-serif;background:radial-gradient(1200px 800px at 50% -10%, #0f1624 0%, var(--bg) 60%);color:var(--text)}
+
+/* ====== Layout Skeleton ====== */
+.app{position:fixed;inset:0;display:grid;grid-template-rows:92px 1fr 110px;}
+
+/* ====== Top Bar ====== */
+.top{
+  position:relative;background:linear-gradient(180deg, rgba(23,27,40,.9), rgba(15,17,23,.9));
+  border-bottom:1px solid #172033; display:flex; align-items:center; justify-content:center;
+}
+.top .chrome{position:absolute; inset:8px 10px; border:1px solid var(--line); border-radius:16px;}
+.top .chrome::before, .top .chrome::after{
+  content:""; position:absolute; inset:-1px; border-radius:16px; pointer-events:none;
+  background:
+    conic-gradient(from 0deg at 10% 0%, transparent 0 75deg, rgba(0,224,255,.3) 75deg 80deg, transparent 80deg),
+    conic-gradient(from 0deg at 90% 100%, transparent 0 260deg, rgba(138,43,226,.25) 260deg 265deg, transparent 265deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; padding:1px; border:1px solid transparent;
+}
+.logo-container {
+  height: 60%;
+  z-index: 1;
+}
+.logo {
+  height: 100%;
+  width: auto;
+  filter: drop-shadow(0 0 10px rgba(0,224,255,.25));
+}
+
+/* ====== Main View ====== */
+.view{position:relative; overflow:hidden; height:100%; background: radial-gradient(500px 300px at 50% -10%, rgba(0,224,255,.05), transparent 60%);}
+.view > .inner{position:absolute; inset:0; display:none}
+.view > .inner.active{display:block}
+
+/* Camera View */
+#camera video{width:100%;height:100%;object-fit:cover;background:#000}
+.cameraMask{position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 0 2px rgba(0,224,255,.12), inset 0 0 80px rgba(0,0,0,.5)}
+
+/* Map View */
+#map{position:absolute; inset:0}
+.leaflet-container{background:#0a0d13}
+.custom-marker-icon {
+  background-color: rgba(0, 224, 255, 0.15); border: 1px solid var(--accent); border-radius: 50%;
+  width: 24px!important; height: 24px!important; box-shadow: 0 0 12px rgba(0, 224, 255, 0.5);
+  display: flex; justify-content: center; align-items: center;
+}
+.custom-marker-icon::after { content: ''; width: 8px; height: 8px; background-color: var(--accent); border-radius: 50%; }
+.leaflet-popup-content-wrapper { background: var(--panel); color: var(--text); border-radius: 8px; border: 1px solid var(--line); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+.leaflet-popup-content { font-size: 14px; }
+.leaflet-popup-tip { background: var(--panel); }
+.leaflet-popup-content .popup-title { font-weight: bold; margin-bottom: 8px; display: block; }
+.popup-btn { display: inline-block; margin-top: 8px; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 6px; background: transparent; color: var(--accent); text-decoration: none; font-weight: bold; transition: all .2s; }
+.popup-btn:hover { background: var(--accent); color: var(--bg); }
+
+/* Album View */
+.albumGrid{position:absolute; inset:0; overflow:auto; padding:14px; display:grid; grid-template-columns:repeat(2,1fr); gap:12px}
+.card{position:relative; border:1px solid var(--line); border-radius:14px; background:linear-gradient(180deg,#0e1016, #0a0c11); overflow:hidden; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+.card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+.card .thumb{aspect-ratio:4/3; width:100%; display:block; background:#050608; object-fit: cover;}
+.card .meta{padding:10px 12px; font-size:12px; color:#cfe4ff}
+.card .meta .cap{font-weight:600}
+
+/* ====== Found Photo Overlay ====== */
+#foundPhotoOverlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  transition: opacity .4s ease-out;
+}
+#foundPhotoOverlay.show { display: flex; }
+.photo-container {
+  position: relative;
+  width: 90%;
+  max-width: 500px;
+  text-align: center;
+  transform: scale(0.95);
+  transition: transform .4s ease-out;
+}
+#foundPhotoOverlay.show .photo-container { transform: scale(1); }
+.photo-container .photo-image {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 2px solid var(--line);
+  margin-bottom: 16px;
+  background: #000;
+}
+.photo-caption { color: var(--text); margin-bottom: 20px; }
+.photo-caption .main { font-size: 18px; font-weight: 600; }
+.paging-controls { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.paging-btn {
+  --glow: rgba(0,224,255,.4);
+  background: transparent; border: 1px solid var(--line); color: var(--text);
+  border-radius: 8px; cursor: pointer; transition: all .2s;
+  font-size: 18px; padding: 8px 18px; line-height: 1; width: 60px;
+}
+.paging-btn:hover:not(:disabled) { border-color: var(--accent); box-shadow: 0 0 12px var(--glow); }
+.paging-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.paging-counter { font-size: 14px; font-weight: 600; color: var(--muted); }
+.close-btn { position: absolute; top: -40px; right: 0; width: 32px; height: 32px; background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 50%; cursor: pointer; font-size: 20px; line-height: 30px; }
+
+/* ====== Bottom Controls ====== */
+.bottom{position:relative; background:linear-gradient(180deg, #0c0f15, #0b0d13); border-top:1px solid #172033;}
+.bottom .chrome{position:absolute; inset:10px; border:1px solid var(--line); border-radius:16px;}
+.bottom .chrome::before{content:""; position:absolute; inset:-1px; border-radius:16px; padding:1px; background:linear-gradient(90deg, rgba(0,224,255,.35), rgba(138,43,226,.25), rgba(0,224,255,.35)); -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; border:1px solid transparent; opacity:.25 }
+.controls{position:relative; height:100%; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:16px; padding:20px 18px}
+.btn{
+  --glow: rgba(0,224,255,.4);
+  display:inline-grid; place-items:center; gap:6px; padding:10px 14px;
+  border:1px solid #1b2436; background:linear-gradient(180deg,#0f1420,#0b0f19); color:var(--text);
+  border-radius:14px; min-width:120px; cursor:pointer; text-align:center; user-select:none;
+  box-shadow:0 0 0 1px rgba(0,224,255,.08) inset, 0 0 24px rgba(0,224,255,.06) inset;
+}
+.btn:active{transform:scale(.98)}
+.btn .label{font-size:12px; opacity:.85; letter-spacing:.08em}
+.btn .icon{width:22px; height:22px; display:block; filter: drop-shadow(0 0 8px var(--glow));}
+.shutterWrap{display:grid; place-items:center}
+.shutter{
+  width:80px; height:80px; border-radius:50%; border:3px solid #1b2436; position:relative; cursor:pointer;
+  background: radial-gradient(circle at 50% 45%, #f4fbff 0 45%, #c5e7ff 45% 55%, #8cd8ff 55% 100%);
+  box-shadow:0 0 0 2px rgba(0,224,255,.12) inset, 0 10px 40px rgba(0,0,0,.5);
+}
+.shutter::after{content:""; position:absolute; inset:12px; border-radius:50%; border:2px dashed rgba(0,224,255,.25)}
+.shutter:active{transform:scale(.97)}
+
+/* ====== Toast Notifications ====== */
+.toast{position:fixed; left:50%; bottom:140px; transform:translateX(-50%); background:#0b0f16; border:1px solid #1b2436; color:#d1ecff; padding:10px 14px; border-radius:10px; font-size:13px; box-shadow:0 10px 40px rgba(0,0,0,.45); display:none}
+.toast.show{display:block; animation:fade .25s ease-out}
+@keyframes fade{from{opacity:0; transform:translateX(-50%) translateY(6px)} to{opacity:1; transform:translateX(-50%)}}
+
+/* ====== View Transitions ====== */
+.fade-enter{animation:fadeIn .24s ease-out}
+@keyframes fadeIn{from{opacity:0} to{opacity:1}}
+
+/* ====== Safe Area for iOS ====== */
+@supports(padding:max(0px)){
+  .top{padding-top:max(0px, env(safe-area-inset-top))}
+  .bottom{padding-bottom:max(0px, env(safe-area-inset-bottom))}
+}
+/* --- ここまでCSS --- */
+</style>
+</head>
+<body>
+  <div class="app">
+    <!-- ===== Top (fixed) ===== -->
+    <header class="top">
+      <div class="chrome"></div>
+      <div class="logo-container">
+        <img src="./memorycamera_logo.png" alt="思い出カメラ ロゴ" class="logo">
+      </div>
+    </header>
+
+    <!-- ===== Center View (switchable) ===== -->
+    <main class="view">
+      <!-- Camera View -->
+      <section id="camera" class="inner active fade-enter" aria-hidden="false">
+        <video id="video" autoplay playsinline muted></video>
+        <div class="cameraMask"></div>
+      </section>
+
+      <!-- Map View -->
+      <section id="mapview" class="inner" aria-hidden="true">
+        <div id="map"></div>
+      </section>
+
+      <!-- Album View -->
+      <section id="album" class="inner" aria-hidden="true">
+        <div class="albumGrid" id="albumGrid"></div>
+      </section>
+
+      <!-- Found Photo Overlay -->
+      <div id="foundPhotoOverlay">
+        <div class="photo-container">
+          <button id="closePhotoBtn" class="close-btn" aria-label="閉じる">&times;</button>
+          <img id="foundPhotoImage" class="photo-image" src="" alt="発見された写真">
+          <div id="foundPhotoCaption" class="photo-caption">
+            <div class="main"></div>
+          </div>
+          <div class="paging-controls">
+            <button id="prevPhotoBtn" class="paging-btn" aria-label="前の写真">◀</button>
+            <span id="pagingCounter" class="paging-counter"></span>
+            <button id="nextPhotoBtn" class="paging-btn" aria-label="次の写真">▶</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ===== Bottom Controls (fixed) ===== -->
+    <footer class="bottom">
+      <div class="chrome"></div>
+      <div class="controls">
+        <button class="btn" id="btnAlbum" aria-pressed="false">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="7" height="7" rx="1"/><rect x="14" y="5" width="7" height="7" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/><rect x="14" y="16" width="7" height="5" rx="1"/></svg>
+          <div class="label">アルバム</div>
+        </button>
+        <div class="shutterWrap">
+          <button class="shutter" id="btnShutter" aria-label="シャッター"></button>
+        </div>
+        <button class="btn" id="btnMap" aria-pressed="false">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2V6z"/><path d="M9 4v14"/><path d="M15 6v14"/></svg>
+          <div class="label">マップ</div>
+        </button>
+      </div>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- Leaflet and Main Script -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+  
+  <script>
+  // --- ここからJavaScript ---
+  document.addEventListener('DOMContentLoaded', () => {
+
+    // ====== DOM Elements ======
+    const views = {
+        camera: document.querySelector('#camera'),
+        map: document.querySelector('#mapview'),
+        album: document.querySelector('#album')
+    };
+    const toastEl = document.querySelector('#toast');
+    const foundPhotoOverlay = document.querySelector('#foundPhotoOverlay');
+    const foundPhotoImage = document.querySelector('#foundPhotoImage');
+    const foundPhotoCaptionMain = document.querySelector('#foundPhotoCaption .main');
+    const pagingCounter = document.querySelector('#pagingCounter');
+    const prevBtn = document.querySelector('#prevPhotoBtn');
+    const nextBtn = document.querySelector('#nextPhotoBtn');
+
+    // ====== App State ======
+    let allPhotoData = [];
+    let map;
+    const markersById = {};
+    let foundPhotos = [];
+    let currentFoundIndex = 0;
+    const FIND_RADIUS_METERS = 15; // 半径15m
+
+    // ====== Utilities ======
+    const toast = (text, duration = 1800) => {
+        toastEl.textContent = text;
+        toastEl.classList.add('show');
+        setTimeout(() => toastEl.classList.remove('show'), duration);
+    };
+
+    /**
+     * Calculate distance between two lat/lon points using Haversine formula.
+     * @param {number} lat1 Latitude of point 1
+     * @param {number} lon1 Longitude of point 1
+     * @param {number} lat2 Latitude of point 2
+     * @param {number} lon2 Longitude of point 2
+     * @returns {number} Distance in meters
+     */
+    const getDistance = (lat1, lon1, lat2, lon2) => {
+        const R = 6371e3; // Earth's radius in meters
+        const φ1 = lat1 * Math.PI / 180;
+        const φ2 = lat2 * Math.PI / 180;
+        const Δφ = (lat2 - lat1) * Math.PI / 180;
+        const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                  Math.cos(φ1) * Math.cos(φ2) *
+                  Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return R * c;
+    };
+
+    // ====== View Management ======
+    const showView = (name) => {
+        Object.entries(views).forEach(([key, el]) => {
+            const isActive = (key === name);
+            el.classList.toggle('active', isActive);
+            el.setAttribute('aria-hidden', String(!isActive));
+            if (isActive) {
+                el.classList.add('fade-enter');
+                setTimeout(() => el.classList.remove('fade-enter'), 260);
+            }
+        });
+    };
+
+    // ====== Data Loading ======
+    const loadPhotoData = async () => {
+        try {
+            const response = await fetch('./data/suzu_data.csv');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const csvText = await response.text();
+            // Simple CSV parser (no external library)
+            const lines = csvText.trim().split('\n');
+            const header = lines.shift().split(',').map(h => h.trim());
+            
+            const idIndex = header.indexOf('id');
+            const textIndex = header.indexOf('text');
+            const latIndex = header.indexOf('lat');
+            const longIndex = header.indexOf('long');
+
+            allPhotoData = lines.map(line => {
+                const values = line.split(',');
+                return {
+                    id: values[idIndex].trim(),
+                    text: values[textIndex].trim(),
+                    lat: parseFloat(values[latIndex]),
+                    long: parseFloat(values[longIndex])
+                };
+            }).filter(p => p.id && !isNaN(p.lat) && !isNaN(p.long)); // Basic validation
+            
+            console.log('Photo data loaded:', allPhotoData);
+        } catch (error) {
+            console.error("Could not load photo data:", error);
+            toast('写真データの読み込みに失敗しました。');
+        }
+    };
+
+    // ====== Camera ======
+    const startCamera = async () => {
+        const video = document.querySelector('#video');
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+            video.srcObject = stream;
+        } catch (err) {
+            toast('カメラが利用できません');
+            console.warn('Camera Error:', err);
+        }
+    };
+
+    // ====== Map ======
+    const initMapOnce = () => {
+        if (map) return;
+        // Center of Suzu City
+        map = L.map('map', { zoomControl: true, attributionControl: true }).setView([37.444, 137.264], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+        const customIcon = L.divIcon({ className: 'custom-marker-icon', iconSize: [24, 24], iconAnchor: [12, 12], popupAnchor: [0, -12] });
+        const markersLayer = L.layerGroup().addTo(map);
+
+        allPhotoData.forEach(p => {
+            const popupContent = `<strong class="popup-title">${p.text}</strong><a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.long}" target="_blank" rel="noopener" class="popup-btn">ここに行く</a>`;
+            const m = L.marker([p.lat, p.long], { icon: customIcon }).addTo(markersLayer).bindPopup(popupContent);
+            markersById[p.id] = m;
+        });
+    };
+
+    // ====== Album ======
+    const renderAlbum = () => {
+        const grid = document.querySelector('#albumGrid');
+        grid.innerHTML = allPhotoData.map(p => `
+            <figure class="card" data-id="${p.id}">
+              <img class="thumb" src="./images/${p.id}" alt="${p.text}" loading="lazy">
+              <figcaption class="meta">
+                <div class="cap">${p.text}</div>
+              </figcaption>
+            </figure>
+        `).join('');
+    };
+
+    const flyToPoint = (id) => {
+        const point = allPhotoData.find(p => p.id === id);
+        if (!point) return;
+        showView('map');
+        initMapOnce(); // Ensure map is ready
+        const targetMarker = markersById[id];
+        if (map && targetMarker) {
+            map.flyTo([point.lat, point.long], 17, { animate: true, duration: 1.5 });
+            setTimeout(() => { targetMarker.openPopup(); }, 800);
+        }
+    };
+
+    // ====== Shutter & Photo Finding ======
+    const findPhotosNearby = (currentLat, currentLon) => {
+        foundPhotos = allPhotoData.filter(p => {
+            const distance = getDistance(currentLat, currentLon, p.lat, p.long);
+            return distance <= FIND_RADIUS_METERS;
+        });
+
+        if (foundPhotos.length > 0) {
+            toast(`近くで ${foundPhotos.length}枚の思い出を発見！`);
+            showFoundPhotos();
+        } else {
+            toast('この近くには思い出の写真がないようです');
+        }
+    };
+
+    const handleShutterClick = () => {
+        toast('現在地から思い出を探しています...');
+        if (!navigator.geolocation) {
+            toast('お使いのブラウザは位置情報取得に未対応です');
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                findPhotosNearby(latitude, longitude);
+            },
+            (error) => {
+                toast('位置情報の取得に失敗しました');
+                console.error('Geolocation error:', error);
+            },
+            { enableHighAccuracy: true }
+        );
+    };
+
+    // ====== Found Photo Modal ======
+    const displayFoundPhoto = (index) => {
+        const photo = foundPhotos[index];
+        foundPhotoImage.src = `./images/${photo.id}`;
+        foundPhotoCaptionMain.textContent = photo.text;
+        pagingCounter.textContent = `${index + 1} / ${foundPhotos.length}`;
+        prevBtn.disabled = index === 0;
+        nextBtn.disabled = index === foundPhotos.length - 1;
+    };
+
+    const showFoundPhotos = () => {
+        currentFoundIndex = 0;
+        displayFoundPhoto(currentFoundIndex);
+        foundPhotoOverlay.classList.add('show');
+        setTimeout(() => { foundPhotoOverlay.style.opacity = '1'; }, 10);
+    };
+
+    const hideFoundPhotos = () => {
+        foundPhotoOverlay.style.opacity = '0';
+        setTimeout(() => { foundPhotoOverlay.classList.remove('show'); }, 400);
+    };
+
+    // ====== Event Listeners ======
+    document.querySelector('#btnMap').addEventListener('click', () => { showView('map'); initMapOnce(); });
+    document.querySelector('#btnAlbum').addEventListener('click', () => { renderAlbum(); showView('album'); });
+    document.querySelector('#albumGrid').addEventListener('click', e => {
+        const card = e.target.closest('.card');
+        if (card && card.dataset.id) flyToPoint(card.dataset.id);
+    });
+    document.querySelector('#btnShutter').addEventListener('click', handleShutterClick);
+    
+    // Photo modal controls
+    prevBtn.addEventListener('click', () => {
+        if (currentFoundIndex > 0) {
+            currentFoundIndex--;
+            displayFoundPhoto(currentFoundIndex);
+        }
+    });
+    nextBtn.addEventListener('click', () => {
+        if (currentFoundIndex < foundPhotos.length - 1) {
+            currentFoundIndex++;
+            displayFoundPhoto(currentFoundIndex);
+        }
+    });
+    document.querySelector('#closePhotoBtn').addEventListener('click', hideFoundPhotos);
+
+    // ====== App Initialization ======
+    const initializeApp = async () => {
+        await loadPhotoData();
+        startCamera();
+    };
+
+    initializeApp();
+  });
+  // --- ここまでJavaScript ---
+  </script>
+</body>
+</html>
+
