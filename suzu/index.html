@@ -61,9 +61,43 @@ body{
 #camera { position: relative; background: #000; display: flex; justify-content: center; align-items: center; }
 #camera video{width:100%;height:100%;object-fit:cover;}
 .cameraMask{position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 0 2px rgba(0,224,255,.12), inset 0 0 80px rgba(0,0,0,.5)}
-#cameraOffMessage {
-    color: var(--muted); font-size: 14px; text-align: center;
+#cameraOffState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
 }
+#cameraOffState .logo {
+    width: 60%;
+    max-width: 200px;
+    opacity: 0.7;
+}
+
+#toggleCameraButton {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: rgba(15, 17, 23, 0.8);
+  backdrop-filter: blur(4px);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: background .2s, color .2s;
+}
+#toggleCameraButton.is-on {
+    background: rgba(0, 224, 255, 0.2);
+    color: var(--accent);
+}
+#toggleCameraButton svg { width: 24px; height: 24px; }
+
 
 /* Map View */
 #map{position:absolute; inset:0}
@@ -75,19 +109,45 @@ body{
 }
 .custom-marker-icon::after { content: ''; width: 8px; height: 8px; background-color: var(--accent); border-radius: 50%; }
 .leaflet-popup-content-wrapper { background: var(--panel); color: var(--text); border-radius: 8px; border: 1px solid var(--line); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
-.leaflet-popup-content { font-size: 14px; }
+.leaflet-popup-content { font-size: 14px; width: 160px !important; }
 .leaflet-popup-tip { background: var(--panel); }
-.leaflet-popup-content .popup-title { font-weight: bold; margin-bottom: 8px; display: block; }
-.popup-btn { display: inline-block; margin-top: 8px; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 6px; background: transparent; color: var(--accent); text-decoration: none; font-weight: bold; transition: all .2s; }
+.leaflet-popup-content .popup-title { font-weight: bold; margin-bottom: 8px; display: block; text-align: center; }
+.popup-actions { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.popup-btn {
+  display: inline-block; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 6px;
+  background: transparent; color: var(--accent); text-decoration: none; font-weight: bold;
+  transition: all .2s; width: 100%; text-align: center;
+}
 .popup-btn:hover { background: var(--accent); color: var(--bg); }
+.popup-btn.secondary { border-color: var(--accent2); color: var(--accent2); }
+.popup-btn.secondary:hover { background: var(--accent2); color: var(--text); }
+
 
 /* Album View */
 .albumGrid{position:absolute; inset:0; overflow:auto; padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px}
-.card{position:relative; border:1px solid var(--line); border-radius:14px; background:linear-gradient(180deg,#0e1016, #0a0c11); overflow:hidden; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+.card{
+  position:relative; border:1px solid var(--line); border-radius:14px;
+  background:linear-gradient(180deg,#0e1016, #0a0c11); overflow:hidden;
+  cursor: pointer; transition: transform .2s, box-shadow .2s;
+}
+.card.highlight {
+    box-shadow: 0 0 20px var(--accent);
+    border-color: var(--accent);
+    transform: scale(1.02);
+}
 .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,.5); }
-.card .thumb{aspect-ratio:4/3; width:100%; display:block; background:#050608; object-fit: cover;}
+.card .thumb{aspect-ratio:1 / 1; width:100%; display:block; background:#050608; object-fit: cover;}
 .card .meta{padding:8px 10px; font-size:11px; color:#cfe4ff}
 .card .meta .cap{font-weight:600}
+
+@media (max-width: 600px) {
+    .albumGrid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .card .meta { font-size: 13px; padding: 12px 14px; }
+}
+
 
 /* ====== Found Photo Overlay ====== */
 #foundPhotoOverlay {
@@ -238,7 +298,12 @@ body{
       <section id="camera" class="inner active fade-enter" aria-hidden="false">
         <video id="video" autoplay playsinline muted></video>
         <div class="cameraMask"></div>
-        <div id="cameraOffMessage">カメラがオフです</div>
+        <div id="cameraOffState">
+          <img src="./memorycamera_logo.png" alt="Logo" class="logo">
+        </div>
+        <button id="toggleCameraButton" aria-label="Toggle Camera">
+            <!-- Icon will be inserted by JS -->
+        </button>
       </section>
 
       <!-- Map View -->
@@ -291,7 +356,7 @@ body{
 
   <div class="toast" id="toast"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo" crossorigin="anonymous"></script>
   
   <script>
   document.addEventListener('DOMContentLoaded', () => {
@@ -300,7 +365,8 @@ body{
     const views = { camera: document.querySelector('#camera'), map: document.querySelector('#mapview'), album: document.querySelector('#album') };
     const toastEl = document.querySelector('#toast');
     const videoEl = document.querySelector('#video');
-    const cameraOffMessage = document.querySelector('#cameraOffMessage');
+    const cameraOffState = document.querySelector('#cameraOffState');
+    const toggleCameraButton = document.querySelector('#toggleCameraButton');
     const centerBtn = document.querySelector('#centerBtn');
     const foundPhotoOverlay = document.querySelector('#foundPhotoOverlay');
     const foundPhotoImage = document.querySelector('#foundPhotoImage');
@@ -317,10 +383,14 @@ body{
     let currentFoundIndex = 0;
     const FIND_RADIUS_METERS = 15;
     let cameraStream = null;
+    let isCameraOn = false;
     let currentView = 'camera';
 
+    // SVG Icons
     const shutterIcon = `<svg class="center-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle></svg><div class="label">シャッター</div>`;
     const cameraIcon = `<svg class="center-btn-icon is-camera-mode" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg><div class="label">カメラ</div>`;
+    const cameraOnIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect></svg>`;
+    const cameraOffIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>`;
 
     // ====== Utilities ======
     const toast = (text, duration = 1800) => {
@@ -351,12 +421,10 @@ body{
 
     // ====== View Management ======
     const showView = (name) => {
-        const oldView = currentView;
-        currentView = name;
-
-        if (oldView === 'camera' && name !== 'camera') {
+        if (currentView === 'camera' && name !== 'camera') {
             stopCamera();
         }
+        currentView = name;
 
         Object.entries(views).forEach(([key, el]) => {
             const isActive = (key === name);
@@ -367,39 +435,24 @@ body{
                 setTimeout(() => el.classList.remove('fade-enter'), 260);
             }
         });
-
-        if (name === 'camera' && !cameraStream) {
-            startCamera();
-        }
-        
         updateCenterButtonUI(name);
     };
 
     // ====== Data Loading ======
     const loadPhotoData = async () => {
         try {
-            // --- FIX: Corrected file path ---
             const response = await fetch('./suzu_data.csv');
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            
             const csvText = await response.text();
             const lines = csvText.trim().split('\n');
             const header = lines.shift().split(',').map(h => h.trim());
             const [idIndex, textIndex, latIndex, longIndex] = ['id', 'text', 'lat', 'long'].map(h => header.indexOf(h));
-
-            if ([idIndex, textIndex, latIndex, longIndex].includes(-1)) {
-                throw new Error("CSV header is missing required columns (id, text, lat, long).");
-            }
-
+            if ([idIndex, textIndex, latIndex, longIndex].includes(-1)) throw new Error("CSV header is missing required columns.");
             allPhotoData = lines.map(line => {
                 const values = line.split(',');
                 return { id: values[idIndex]?.trim(), text: values[textIndex]?.trim(), lat: parseFloat(values[latIndex]), long: parseFloat(values[longIndex]) };
             }).filter(p => p.id && !isNaN(p.lat) && !isNaN(p.long));
-            
-            console.log('Photo data loaded:', allPhotoData.length);
-            if (allPhotoData.length === 0) {
-                 toast('写真データが見つかりませんでした。');
-            }
+            if (allPhotoData.length === 0) toast('写真データが見つかりませんでした。');
         } catch (error) {
             console.error("Could not load photo data:", error);
             toast('写真データの読み込みに失敗しました。');
@@ -407,9 +460,12 @@ body{
     };
     
     // ====== Camera Control ======
-    const updateCameraFeedUI = (isOn) => {
-        cameraOffMessage.style.display = isOn ? 'none' : 'block';
+    const updateCameraUI = (isOn) => {
+        isCameraOn = isOn;
+        cameraOffState.style.display = isOn ? 'none' : 'flex';
         videoEl.style.display = isOn ? 'block' : 'none';
+        toggleCameraButton.innerHTML = isOn ? cameraOnIcon : cameraOffIcon;
+        toggleCameraButton.classList.toggle('is-on', isOn);
     };
 
     const startCamera = async () => {
@@ -418,11 +474,11 @@ body{
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
             cameraStream = stream;
             videoEl.srcObject = stream;
-            updateCameraFeedUI(true);
+            updateCameraUI(true);
         } catch (err) {
             toast('カメラの起動に失敗しました');
             console.warn('Camera Error:', err);
-            updateCameraFeedUI(false);
+            updateCameraUI(false);
         }
     };
 
@@ -431,7 +487,7 @@ body{
         cameraStream.getTracks().forEach(track => track.stop());
         videoEl.srcObject = null;
         cameraStream = null;
-        updateCameraFeedUI(false);
+        updateCameraUI(false);
     };
 
     // ====== Map ======
@@ -442,7 +498,12 @@ body{
         const customIcon = L.divIcon({ className: 'custom-marker-icon', iconSize: [24, 24], iconAnchor: [12, 12], popupAnchor: [0, -12] });
         const markersLayer = L.layerGroup().addTo(map);
         allPhotoData.forEach(p => {
-            const popupContent = `<strong class="popup-title">${p.text}</strong><a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.long}" target="_blank" rel="noopener" class="popup-btn">ここに行く</a>`;
+            const popupContent = `
+                <strong class="popup-title">${p.text}</strong>
+                <div class="popup-actions">
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.long}" target="_blank" rel="noopener" class="popup-btn">ここに行く</a>
+                    <button class="popup-btn secondary" data-id="${p.id}">写真を見る</button>
+                </div>`;
             const m = L.marker([p.lat, p.long], { icon: customIcon }).addTo(markersLayer).bindPopup(popupContent);
             markersById[p.id] = m;
         });
@@ -456,23 +517,29 @@ body{
               <figcaption class="meta"><div class="cap">${p.text}</div></figcaption>
             </figure>`).join('');
     };
-
-    const flyToPoint = (id) => {
-        const point = allPhotoData.find(p => p.id === id);
-        if (!point) return;
-        showView('map');
-        initMapOnce();
-        const targetMarker = markersById[id];
-        if (map && targetMarker) {
-            map.flyTo([point.lat, point.long], 17, { animate: true, duration: 1.5 });
-            setTimeout(() => { targetMarker.openPopup(); }, 800);
+    
+    const showPhotoInAlbum = (id) => {
+        showView('album');
+        // Ensure album is rendered before scrolling
+        if (document.querySelector('#albumGrid').innerHTML === '') {
+            renderAlbum();
         }
+
+        // Use setTimeout to allow the view transition to complete
+        setTimeout(() => {
+            const card = document.querySelector(`.card[data-id="${id}"]`);
+            if (card) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                card.classList.add('highlight');
+                setTimeout(() => card.classList.remove('highlight'), 2000);
+            }
+        }, 300);
     };
 
     // ====== Shutter & Photo Finding ======
     const handleShutterClick = () => {
-        if (!cameraStream) {
-            toast('先にカメラを起動してください');
+        if (!isCameraOn) {
+            toast('カメラを起動してください');
             return;
         }
         toast('現在地から思い出を探しています...');
@@ -525,11 +592,23 @@ body{
     // ====== Event Listeners ======
     document.querySelector('#btnMap').addEventListener('click', () => { showView('map'); initMapOnce(); });
     document.querySelector('#btnAlbum').addEventListener('click', () => { renderAlbum(); showView('album'); });
+    
     document.querySelector('#albumGrid').addEventListener('click', e => {
         const card = e.target.closest('.card');
         if (card && card.dataset.id) flyToPoint(card.dataset.id);
     });
+    
+    document.querySelector('#map').addEventListener('click', e => {
+        const viewPhotoButton = e.target.closest('.popup-btn.secondary');
+        if (viewPhotoButton && viewPhotoButton.dataset.id) {
+             showPhotoInAlbum(viewPhotoButton.dataset.id);
+        }
+    });
+
     centerBtn.addEventListener('click', handleCenterButtonClick);
+    toggleCameraButton.addEventListener('click', () => {
+        if (isCameraOn) { stopCamera(); } else { startCamera(); }
+    });
     
     prevBtn.addEventListener('click', () => { if (currentFoundIndex > 0) displayFoundPhoto(--currentFoundIndex); });
     nextBtn.addEventListener('click', () => { if (currentFoundIndex < foundPhotos.length - 1) displayFoundPhoto(++currentFoundIndex); });
@@ -538,7 +617,7 @@ body{
     // ====== App Initialization ======
     const initializeApp = async () => {
         updateCenterButtonUI('camera');
-        updateCameraFeedUI(false);
+        updateCameraUI(false); // Initial camera state is OFF
         await loadPhotoData();
         showView('camera'); // Start on camera view
     };
